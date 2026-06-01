@@ -7,7 +7,7 @@ static const Block blocks[] = {
     {"", "sb-ticker", 180, 27},
     {"", "sb-tasks", 10, 26},
     {"", "sb-dnd", 30, 30},
-    {"", "sb-timer", 1, 7},
+    /* {"", "sb-timer", 1, 7}, */
     {"", "sb-music", 0, 11},
     {"", "sb-mailbox", 180, 12},
     {"", "sb-news", 0, 6},
@@ -18,9 +18,10 @@ static const Block blocks[] = {
     /*{"",	"sb-torrent",	20,	7},*/
     /* {"",	"sb-memory",	10,	14}, */
     /* {"",	"sb-cpu",		10,	18}, */
-    {"", "sb-doppler", 0, 25},
-    {"", "sb-moonphase", 18000, 17},
+    /* {"", "sb-doppler", 0, 25}, */
+    /* {"", "sb-moonphase", 18000, 17}, */
     {"", "sb-forecast", 18000, 5},
+    {"", "sb-claude", 1200, 20},
     {"", "sb-nettraf", 1, 16},
     {"", "sb-volume", 0, 10},
     {"", "sb-snd-output", 180, 18},
