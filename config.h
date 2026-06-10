@@ -1,5 +1,11 @@
 //Modify this file to change what commands output to your statusbar, and recompile using the make command.
 
+//Maximum seconds a block command may run before dwmblocks kills it and moves
+//on, keeping the block's previous text. Keep this comfortably longer than any
+//timeout the block scripts use internally (e.g. curl --max-time) so their own
+//graceful fallbacks fire first.
+#define CMDTIMEOUT 15
+
 static const Block blocks[] = {
     /*Icon*/ /*Command*/ /*Update Interval*/ /*Update Signal*/
     /* {"⌨", "sb-kbselect", 0, 30}, */

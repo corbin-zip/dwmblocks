@@ -86,33 +86,89 @@ void getcmd(const Block *block, char *output)
 		output[0] = block->signal;
 		output++;
 	}
-	char *cmd = block->command;
-	FILE *cmdf = popen(cmd,"r");
-	if (!cmdf){
-        //printf("failed to run: %s, %d\n", block->command, errno);
-		return;
-    }
-    char tmpstr[CMDLENGTH] = "";
-    // TODO decide whether its better to use the last value till next time or just keep trying while the error was the interrupt
-    // this keeps trying to read if it got nothing and the error was an interrupt
-    //  could also just read to a separate buffer and not move the data over if interrupted
-    //  this way will take longer trying to complete 1 thing but will get it done
-    //  the other way will move on to keep going with everything and the part that failed to read will be wrong till its updated again
-    // either way you have to save the data to a temp buffer because when it fails it writes nothing and then then it gets displayed before this finishes
-	char * s;
-    int e;
     // leave room in the block's CMDLENGTH slot for the signal byte,
     // icon, delimiter, and terminator
     int readsize = CMDLENGTH - (block->signal ? 1 : 0)
                    - (int)strlen(block->icon) - (int)strlen(delim);
     if (readsize < 1)
         readsize = 1;
-    do {
-        errno = 0;
-        s = fgets(tmpstr, readsize, cmdf);
-        e = errno;
-    } while (!s && e == EINTR);
-	pclose(cmdf);
+	int pipefd[2];
+	if (pipe(pipefd) < 0)
+		return;
+	pid_t pid = fork();
+	if (pid < 0) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return;
+	}
+	if (pid == 0) {
+		close(pipefd[0]);
+		dup2(pipefd[1], STDOUT_FILENO);
+		close(pipefd[1]);
+		// own process group so a timeout kill catches the whole pipeline,
+		// not just the shell
+		setpgid(0, 0);
+		// undo the blocked signal mask inherited from the parent
+		sigset_t mask;
+		sigemptyset(&mask);
+		sigprocmask(SIG_SETMASK, &mask, NULL);
+		execl("/bin/sh", "sh", "-c", block->command, (char *)NULL);
+		_exit(127);
+	}
+	close(pipefd[1]);
+	setpgid(pid, pid); // mirror the child's setpgid to close the race
+
+	// read until newline or every writer closes the pipe, but give up
+	// after CMDTIMEOUT seconds so a stuck command (or a backgrounded
+	// child holding the pipe open) can't freeze the whole bar
+	char tmpstr[CMDLENGTH] = "";
+	int len = 0;
+	int timedout = 0;
+	struct timespec start, now;
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	while (len < readsize - 1) {
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		int remaining = CMDTIMEOUT * 1000
+		                - (int)((now.tv_sec - start.tv_sec) * 1000
+		                        + (now.tv_nsec - start.tv_nsec) / 1000000);
+		if (remaining <= 0) {
+			timedout = 1;
+			break;
+		}
+		struct pollfd p = {.fd = pipefd[0], .events = POLLIN};
+		int r = poll(&p, 1, remaining);
+		if (r < 0) {
+			if (errno == EINTR)
+				continue;
+			break;
+		}
+		if (r == 0) {
+			timedout = 1;
+			break;
+		}
+		ssize_t n = read(pipefd[0], tmpstr + len, readsize - 1 - len);
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			break;
+		}
+		if (n == 0)
+			break; // every writer closed the pipe
+		len += n;
+		if (memchr(tmpstr + len - n, '\n', n))
+			break;
+	}
+	close(pipefd[0]);
+	if (timedout) {
+		// kill the command's process group and keep the block's
+		// previous text; SA_NOCLDWAIT reaps the child
+		kill(-pid, SIGTERM);
+		return;
+	}
+	// keep only the first line, like fgets did
+	char *nl = strchr(tmpstr, '\n');
+	if (nl)
+		*nl = '\0';
 	int i = strlen(block->icon);
 	strcpy(output, block->icon);
     strcpy(output+i, tmpstr);
