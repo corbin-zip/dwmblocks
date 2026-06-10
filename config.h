@@ -6,6 +6,7 @@ static const Block blocks[] = {
     {"", "cat /tmp/recordingicon 2>/dev/null", 0, 9},
     {"", "sb-ticker", 180, 27},
     {"", "sb-tasks", 10, 26},
+    {"", "sb-firmware", 18000, 21},
     {"", "sb-caffeine", 180, 29},
     {"", "sb-dnd", 180, 30},
     /* {"", "sb-timer", 1, 7}, */
