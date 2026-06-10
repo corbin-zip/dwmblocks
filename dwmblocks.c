@@ -154,7 +154,7 @@ void setupsignals()
 		if (blocks[i].signal > 0)
 			sigaddset(&signals, SIGRTMIN + blocks[i].signal);
 	// Create signal file descriptor for pooling
-	signalFD = signalfd(-1, &signals, 0);
+	signalFD = signalfd(-1, &signals, SFD_CLOEXEC);
 	// Block all real-time signals
 	for (int i = SIGRTMIN; i <= SIGRTMAX; i++) sigaddset(&signals, i);
 	sigprocmask(SIG_BLOCK, &signals, NULL);
@@ -285,6 +285,11 @@ void buttonhandler(int ssi_int)
 		char *command[] = { "/bin/sh", "-c", shcmd, NULL };
 		setenv("BLOCK_BUTTON", button, 1);
 		setsid();
+		// Undo the blocked signal mask inherited from the parent so the
+		// clicked block's command runs with normal signal delivery
+		sigset_t mask;
+		sigemptyset(&mask);
+		sigprocmask(SIG_SETMASK, &mask, NULL);
 		execvp(command[0], command);
 		exit(EXIT_SUCCESS);
 	}
