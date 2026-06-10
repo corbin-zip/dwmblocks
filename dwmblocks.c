@@ -226,7 +226,13 @@ void statusloop()
     while (statusContinue) {
         // Wait for new signal
         ret = poll(pfd, sizeof(pfd) / sizeof(pfd[0]), -1);
-        if (ret < 0 || !(pfd[0].revents & POLLIN)) break;
+        if (ret < 0) {
+            // Interrupted by a handled signal (e.g. SIGTERM); let the loop
+            // condition decide whether to keep going
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (!(pfd[0].revents & POLLIN)) break;
         sighandler(); // Handle signal
     }
 }
