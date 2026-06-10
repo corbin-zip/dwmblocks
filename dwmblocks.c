@@ -10,6 +10,7 @@
 #include <poll.h>
 #define LENGTH(X) (sizeof(X) / sizeof (X[0]))
 #define CMDLENGTH		50
+#define STATUSLENGTH (LENGTH(blocks) * CMDLENGTH + 1)
 
 typedef struct {
 	char* icon;
@@ -25,6 +26,7 @@ void getcmds(int time);
 void getsigcmds(int signal);
 void setupsignals();
 int getstatus(char *str, char *last);
+int setupX();
 void setroot();
 void statusloop();
 void termhandler(int signum);
@@ -36,7 +38,7 @@ static Display *dpy;
 static int screen;
 static Window root;
 static char statusbar[LENGTH(blocks)][CMDLENGTH] = {0};
-static char statusstr[2][256];
+static char statusstr[2][STATUSLENGTH];
 static int statusContinue = 1;
 static int signalFD;
 static int timerInterval = -1;
@@ -178,18 +180,24 @@ int getstatus(char *str, char *last)
 	return strcmp(str, last);//0 if they are the same
 }
 
+int setupX()
+{
+	dpy = XOpenDisplay(NULL);
+	if (!dpy) {
+		fprintf(stderr, "dwmblocks: Failed to open display\n");
+		return 0;
+	}
+	screen = DefaultScreen(dpy);
+	root = RootWindow(dpy, screen);
+	return 1;
+}
+
 void setroot()
 {
 	if (!getstatus(statusstr[0], statusstr[1]))//Only set root if text has changed.
 		return;
-	Display *d = XOpenDisplay(NULL);
-	if (d) {
-		dpy = d;
-	}
-	screen = DefaultScreen(dpy);
-	root = RootWindow(dpy, screen);
 	XStoreName(dpy, root, statusstr[0]);
-	XCloseDisplay(dpy);
+	XFlush(dpy);
 }
 
 void pstdout()
@@ -288,8 +296,12 @@ int main(int argc, char** argv)
 		else if(!strcmp("-p",argv[i]))
 			writestatus = pstdout;
 	}
+	if (!setupX())
+		return 1;
 	signal(SIGTERM, termhandler);
 	signal(SIGINT, termhandler);
 	statusloop();
 	close(signalFD);
+	XCloseDisplay(dpy);
+	return 0;
 }
