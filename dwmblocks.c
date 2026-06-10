@@ -268,15 +268,18 @@ void buttonhandler(int ssi_int)
 	char button[2] = {'0' + ssi_int & 0xff, '\0'};
 	pid_t process_id = getpid();
 	int sig = ssi_int >> 8;
+	const Block *current = NULL;
+	for (int i = 0; i < LENGTH(blocks); i++)
+	{
+		if (blocks[i].signal == sig) {
+			current = blocks + i;
+			break;
+		}
+	}
+	if (!current)
+		return;
 	if (fork() == 0)
 	{
-		const Block *current;
-		for (int i = 0; i < LENGTH(blocks); i++)
-		{
-			current = blocks + i;
-			if (current->signal == sig)
-				break;
-		}
 		char shcmd[1024];
 		sprintf(shcmd,"%s && kill -%d %d",current->command, current->signal+34,process_id);
 		char *command[] = { "/bin/sh", "-c", shcmd, NULL };
