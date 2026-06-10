@@ -101,9 +101,15 @@ void getcmd(const Block *block, char *output)
     // either way you have to save the data to a temp buffer because when it fails it writes nothing and then then it gets displayed before this finishes
 	char * s;
     int e;
+    // leave room in the block's CMDLENGTH slot for the signal byte,
+    // icon, delimiter, and terminator
+    int readsize = CMDLENGTH - (block->signal ? 1 : 0)
+                   - (int)strlen(block->icon) - (int)strlen(delim);
+    if (readsize < 1)
+        readsize = 1;
     do {
         errno = 0;
-        s = fgets(tmpstr, CMDLENGTH-(strlen(delim)+1), cmdf);
+        s = fgets(tmpstr, readsize, cmdf);
         e = errno;
     } while (!s && e == EINTR);
 	pclose(cmdf);
@@ -115,8 +121,6 @@ void getcmd(const Block *block, char *output)
     if ((i > 0 && block != &blocks[LENGTH(blocks) - 1])){
         strcat(output, delim);
     }
-    i+=strlen(delim);
-	output[i++] = '\0';
 }
 
 void getcmds(int time)
