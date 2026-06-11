@@ -1,44 +1,36 @@
-# dwmblocks
+# Corbin's dwmblocks
 
-Modular status bar for dwm written in c.
+Modular status bar for dwm, written in C. Each block runs a shell command and the joined output becomes the bar text. Forked from Luke Smith's build with a round of hardening and updates from upstream on top.
 
-# Modifying blocks
+My block scripts (`sb-*`) live in [my dotfiles repo](https://github.com/corbin-zip/dotfiles/tree/master/.local/bin/statusbar), not here. If you want the bar as I run it, put those in your `$PATH`.
 
-The statusbar is made from text output from commandline programs.  Blocks are
-added and removed by editing the config.h file.
+## What's different in this build
 
-# Luke's build
+Stock dwmblocks is fragile in a few ways that only show up after running it for a while. These fixes were hunted down and implemented with Claude Code running Fable 5:
 
-I have dwmblocks read my preexisting scripts
-[here in my dotfiles repo](https://github.com/LukeSmithxyz/voidrice/tree/master/.local/bin/statusbar).
-So if you want my build out of the box, download those and put them in your
-`$PATH`. I do this to avoid redundancy in LARBS, both i3 and dwm use the same
-statusbar scripts.
+- block commands that hang are killed after `CMDTIMEOUT` (15 seconds) and the block keeps its previous text, so one stuck `curl` can't freeze the whole bar
+- the signalfd and blocked signal mask are no longer leaked into block commands, so the `sb-*` scripts (and anything they spawn) run with a clean signal environment
+- a stray `EINTR` from `poll` no longer kills the status loop
+- click events that don't land on a block are ignored instead of misfiring on the wrong one
+- fixed buffer math for blocks with icons and multi-character delimiters
 
-# Signaling changes
+## Modifying blocks
 
-Most statusbars constantly rerun every script every several seconds to update.
-This is an option here, but a superior choice is giving your module a signal
-that you can signal to it to update on a relevant event, rather than having it
-rerun idly.
+Blocks are defined in `config.h` as `{icon, command, interval, signal}` and compiled in. Edit, rebuild, restart:
 
-For example, the audio module has the update signal 10 by default.  Thus,
-running `pkill -RTMIN+10 dwmblocks` will update it.
+```sh
+sudo make install
+killall -q dwmblocks; setsid dwmblocks &
+```
 
-You can also run `kill -44 $(pidof dwmblocks)` which will have the same effect,
-but is faster.  Just add 34 to your typical signal number.
+## Signaling changes
 
-My volume module *never* updates on its own, instead I have this command run
-along side my volume shortcuts in dwm to only update it when relevant.
+A block with `interval > 0` reruns every N seconds. A block with `interval == 0` only updates when it receives its signal, which is an ideal choice for anything event-driven: rather than polling idly, update the block exactly when something changes.
 
-Note that all modules must have different signal numbers.
+For example, the volume module has signal 10, so `pkill -RTMIN+10 dwmblocks` refreshes it. My volume module never updates on its own; the volume keybindings in dwm send that signal after changing the volume.
 
-# Clickable modules
+Every block needs a unique signal number.
 
-Like i3blocks, this build allows you to build in additional actions into your
-scripts in response to click events.  See the above linked scripts for examples
-of this using the `$BLOCK_BUTTON` variable.
+## Clickable modules
 
-For this feature to work, you need the appropriate patch in dwm as well. See
-[here](https://dwm.suckless.org/patches/statuscmd/).
-Credit for those patches goes to Daniel Bylinka (daniel.bylinka@gmail.com).
+With the [statuscmd patch](https://dwm.suckless.org/patches/statuscmd/) applied in dwm (it is in [my build](https://github.com/corbin-zip/dwm)), clicking a block reruns its command with `$BLOCK_BUTTON` set to the mouse button. The `sb-*` scripts read it to open popups, toggle things, and so on. The statuscmd diffs are kept in `patches/` for reference; they're already applied to this tree. Credit for those patches goes to Daniel Bylinka (daniel.bylinka@gmail.com).
