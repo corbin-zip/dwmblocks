@@ -4,6 +4,7 @@
 //on, keeping the block's previous text. Keep this comfortably longer than any
 //timeout the block scripts use internally (e.g. curl --max-time) so their own
 //graceful fallbacks fire first.
+
 #define CMDTIMEOUT 15
 
 static const Block blocks[] = {
@@ -17,6 +18,7 @@ static const Block blocks[] = {
     {"", "sb-dnd", 180, 30},
     /* {"", "sb-timer", 1, 7}, */
     {"", "sb-music", 0, 11},
+    {"", "sb-radio", 60, 22},
     {"", "sb-mailbox", 180, 12},
     {"", "sb-news", 0, 6},
     {"", "sb-pacpackages", 0, 8},
